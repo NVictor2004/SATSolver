@@ -13,7 +13,8 @@ const WHITESPACE: char = ' ';
 const MIN_VAR_CHAR: char = 'A';
 const MAX_VAR_CHAR: char = 'z';
 
-enum Token {
+#[derive(Debug)]
+pub enum Token {
     AndOperator,
     OrOperator,
     NotOperator,
@@ -49,13 +50,16 @@ impl Display for TokenStream {
 }
 
 impl TokenStream {
-    fn iter(&self) -> impl Iterator<Item=&Token>{
+    pub fn iter(&self) -> impl Iterator<Item=&Token>{
           self.0.iter()
     }
-    fn push(&mut self, token: Token) {
+    pub fn push(&mut self, token: Token) {
         self.0.push(token);
     }
-    fn new() -> TokenStream {
+    pub fn pop(&mut self) -> Option<Token> {
+        self.0.pop()
+    }
+    pub fn new() -> TokenStream {
         TokenStream(Vec::new())
     }
 }

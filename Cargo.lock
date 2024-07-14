@@ -7,8 +7,16 @@ name = "lexer"
 version = "0.1.0"
 
 [[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "lexer",
+]
+
+[[package]]
 name = "satsolver"
 version = "0.1.0"
 dependencies = [
  "lexer",
+ "parser",
 ]
