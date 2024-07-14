@@ -1,5 +1,6 @@
 
 use std::{env::{self, Args}, process};
+use lexer;
 
 fn main() {
     let filename = get_filename(env::args()).unwrap_or_else(|message| {
@@ -7,7 +8,12 @@ fn main() {
         process::exit(1);
     });
 
-    println!("{filename}");
+    let tokenstream = lexer::run(filename).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        process::exit(1);
+    });
+
+    println!("{tokenstream}");
 }
 
 // Get the filename, if provided
