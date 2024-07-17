@@ -81,22 +81,53 @@ impl Display for LexerError {
 impl Error for LexerError {}
 
 pub fn run(filename: String) -> Result<TokenStream, Box<dyn Error>> {
-
     let formula = fs::read_to_string(filename)?;
+    Ok(get_tokens(formula)?)
+}
+
+enum LexerState {
+    Ready,
+    InVar(String),
+}
+
+fn get_tokens(formula: String) -> Result<TokenStream, LexerError> {
     let mut stream = TokenStream::new();
+    let mut state = LexerState::Ready;
     
     for char in formula.chars() {
-        let token = match char {
-            AND_OPERATOR => Token::AndOperator,
-            OR_OPERATOR => Token::OrOperator,
-            NOT_OPERATOR => Token::NotOperator,
-            L_BRACKET => Token::LBracket,
-            R_BRACKET => Token::RBracket,
-            MIN_VAR_CHAR ..= MAX_VAR_CHAR => Token::Var(String::from(char)),
-            WHITESPACE => continue,
-            _ => return Err(Box::new(LexerError { message: format!("Unknown Token: {char}") })),
-        };
-        stream.push(token);
+        match state {
+            LexerState::Ready => match char {
+                AND_OPERATOR => stream.push(Token::AndOperator),
+                OR_OPERATOR => stream.push(Token::OrOperator),
+                NOT_OPERATOR => stream.push(Token::NotOperator),
+                L_BRACKET => stream.push(Token::LBracket),
+                R_BRACKET => stream.push(Token::RBracket),
+                WHITESPACE => continue,
+                MIN_VAR_CHAR ..= MAX_VAR_CHAR => state = LexerState::InVar(String::from(char)),
+                _ => return Err(LexerError { message: format!("Unknown Token: {char}") }),
+            },
+            LexerState::InVar(var) => match char {
+                AND_OPERATOR | OR_OPERATOR | R_BRACKET | WHITESPACE => {
+                    stream.push(Token::Var(var));
+                    match char {
+                        AND_OPERATOR => stream.push(Token::AndOperator),
+                        OR_OPERATOR => stream.push(Token::OrOperator),
+                        R_BRACKET => stream.push(Token::RBracket),
+                        WHITESPACE => (),
+                        _ => panic!("Should never be called!"),
+                    }
+                    state = LexerState::Ready;
+                },
+                MIN_VAR_CHAR ..= MAX_VAR_CHAR => state = LexerState::InVar(format!("{var}{char}")),
+                NOT_OPERATOR | L_BRACKET => return Err(LexerError { message: format!("Malformed Formula") }),
+                _ => return Err(LexerError { message: format!("Unknown Token: {char}") }),
+            },
+        }
     }
+
+    if let LexerState::InVar(var) = state {
+        stream.push(Token::Var(var));
+    }
+
     Ok(stream)
 }
