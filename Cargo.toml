@@ -1,5 +1,6 @@
-[workspace]
+[package]
+name = "satsolver"
+version = "0.1.0"
+edition = "2021"
 
-members = [
-    "satsolver",
-]
+[dependencies]
