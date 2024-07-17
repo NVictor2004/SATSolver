@@ -1,9 +1,9 @@
 
-use std::{env::{self, Args}, process};
-use satsolver::{lexer, parser};
+use std::{env, process};
+use satsolver::{lexer, parser, util};
 
 fn main() {
-    let filename = get_filename(env::args()).unwrap_or_else(|message| {
+    let filename = util::get_filename(env::args()).unwrap_or_else(|message| {
         eprintln!("{message}");
         process::exit(1);
     });
@@ -12,8 +12,6 @@ fn main() {
         eprintln!("{error}");
         process::exit(1);
     });
-
-    println!("{tokenstream}");
     
     let expression = parser::run(tokenstream).unwrap_or_else(|error| {
         eprintln!("{error}");
@@ -21,18 +19,4 @@ fn main() {
     });
 
     println!("{expression}");
-}
-
-// Get the filename, if provided
-fn get_filename(mut args: Args) -> Result<String, &'static str> {
-
-    // Skip Executable Name
-    args.next();
-
-    // Return filename if provided
-    // Or an error message if not
-    match args.next() {
-        Some(filename) => Ok(filename),
-        None => Err("Please provide a filename!"),
-    }
 }
