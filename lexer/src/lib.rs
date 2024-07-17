@@ -62,6 +62,9 @@ impl TokenStream {
     pub fn new() -> TokenStream {
         TokenStream(Vec::new())
     }
+    pub fn last(&mut self) -> Option<&Token> {
+        self.0.last()
+    }
 }
 
 #[derive(Debug)]

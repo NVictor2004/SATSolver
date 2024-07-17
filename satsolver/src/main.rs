@@ -15,11 +15,13 @@ fn main() {
     });
 
     println!("{tokenstream}");
-
+    
     let expression = parser::run(tokenstream).unwrap_or_else(|error| {
         eprintln!("{error}");
         process::exit(1);
     });
+
+    println!("{expression}");
 }
 
 // Get the filename, if provided
