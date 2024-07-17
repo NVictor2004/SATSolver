@@ -1,7 +1,6 @@
 
 use std::{env::{self, Args}, process};
-use lexer;
-use parser;
+use satsolver::{lexer, parser};
 
 fn main() {
     let filename = get_filename(env::args()).unwrap_or_else(|message| {

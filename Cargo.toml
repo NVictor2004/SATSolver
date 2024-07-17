@@ -2,6 +2,4 @@
 
 members = [
     "satsolver",
-    "lexer",
-    "parser",
 ]

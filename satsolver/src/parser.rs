@@ -1,5 +1,5 @@
 
-use lexer::{TokenStream, Token::{self, *}};
+use crate::lexer::{TokenStream, Token::{self, *}};
 use std::error::Error;
 use std::fmt::{self, Display};
 
