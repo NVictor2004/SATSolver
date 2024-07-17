@@ -49,7 +49,7 @@ impl Display for ParserError {
 
 impl Error for ParserError {}
 
-pub fn run(stream: TokenStream) -> Result<Expression, ParserError>  {
+pub fn run_parser(stream: TokenStream) -> Result<Expression, ParserError>  {
     stream.polish_notation()?.expression()
 }
 

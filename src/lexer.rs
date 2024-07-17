@@ -80,7 +80,7 @@ impl Display for LexerError {
 
 impl Error for LexerError {}
 
-pub fn run(filename: String) -> Result<TokenStream, Box<dyn Error>> {
+pub fn run_lexer(filename: String) -> Result<TokenStream, Box<dyn Error>> {
     let formula = fs::read_to_string(filename)?;
     Ok(get_tokens(formula)?)
 }
