@@ -50,90 +50,91 @@ impl Display for ParserError {
 impl Error for ParserError {}
 
 pub fn run(stream: TokenStream) -> Result<Expression, ParserError>  {
-    let polish = polish_notation(stream)?;
-    println!("{polish}");
-
-    Ok(expression(polish)?)
+    stream.polish_notation()?.expression()
 }
 
-fn polish_notation(mut stream: TokenStream) -> Result<TokenStream, ParserError> {
-    let mut result = TokenStream::new();
-    let mut operators: Vec<Token> = Vec::new();
-
-    'main: while let Some(token) = stream.pop() {
-        match token {
-            Var(_) => result.push(token),
-            RBracket => operators.push(token),
-            LBracket => {
-                while let Some(operator) = operators.pop() {
-                    match operator {
-                        RBracket => continue 'main,
-                        _ => result.push(operator),
-                    }
-                }
-                return Err(ParserError { message: String::from("Missing )") });
-            }
-            _ => {
-                while let Some(top) = operators.last() {
-                    if precedence(top) < precedence(&token) {
-                        break;
-                    }
-                    result.push(operators.pop().unwrap());
-                }
-                operators.push(token);
-            }
+impl Token {
+    fn precedence(&self) -> u32 {
+        match self {
+            RBracket => 0,
+            OrOperator => 1, 
+            AndOperator => 2, 
+            NotOperator => 3, 
+            _ => panic!("This token {self} should not be in the operator stack!"),
         }
     }
+}
 
-    while let Some(operator) = operators.pop() {
-        match operator {
-            RBracket => return Err(ParserError { message: String::from("Missing (") }),
-            _ => result.push(operator),
+impl TokenStream {
+    fn polish_notation(mut self) -> Result<TokenStream, ParserError> {
+        let mut result = TokenStream::new();
+        let mut operators: Vec<Token> = Vec::new();
+    
+        'main: while let Some(token) = self.pop() {
+            match token {
+                Var(_) => result.push(token),
+                RBracket => operators.push(token),
+                LBracket => {
+                    while let Some(operator) = operators.pop() {
+                        match operator {
+                            RBracket => continue 'main,
+                            _ => result.push(operator),
+                        }
+                    }
+                    return Err(ParserError { message: String::from("Missing )") });
+                }
+                _ => {
+                    while let Some(top) = operators.last() {
+                        if top.precedence() < token.precedence() {
+                            break;
+                        }
+                        result.push(operators.pop().unwrap());
+                    }
+                    operators.push(token);
+                }
+            }
+        }
+    
+        while let Some(operator) = operators.pop() {
+            match operator {
+                RBracket => return Err(ParserError { message: String::from("Missing (") }),
+                _ => result.push(operator),
+            }
+        }
+    
+        Ok(result)
+    }
+    
+    fn expression(mut self) -> Result<Expression, ParserError> {
+        let expression = self.take_expression()?;
+    
+        match self.pop() {
+            None => Ok(expression),
+            Some(_) => Err(ParserError { message: String::from("Malformed Formula") }),
         }
     }
-
-    Ok(result)
-}
-
-fn precedence(token: &Token) -> u32 {
-    match token {
-        RBracket => 0,
-        OrOperator => 1, 
-        AndOperator => 2, 
-        NotOperator => 3, 
-        _ => panic!("This token {token} should not be in the operator stack!"),
-    }
-}
-
-fn expression(mut stream: TokenStream) -> Result<Expression, ParserError> {
-    let expression = take_expression(&mut stream)?;
-
-    match stream.pop() {
-        None => Ok(expression),
-        Some(_) => Err(ParserError { message: String::from("Malformed Formula") }),
-    }
-}
-
-fn take_expression(stream: &mut TokenStream) -> Result<Expression, ParserError> {
-    match stream.pop() {
-        None => Err(ParserError { message: String::from("Malformed Formula") }),
-        Some(token) => match token {
-            Var(var) => Ok(Expression::Var(var)),
-            NotOperator => {
-                let expr = take_expression(stream)?;
-                Ok(Expression::Not(Box::new(expr)))
-            }
-            AndOperator => {
-                let expr = take_expression(stream)?;
-                let expr2 = take_expression(stream)?;
-                Ok(Expression::And(Box::new(expr), Box::new(expr2)))
-            }
-            OrOperator => {
-                let expr = take_expression(stream)?;
-                let expr2 = take_expression(stream)?;
-                Ok(Expression::Or(Box::new(expr), Box::new(expr2)))
-            }
-            _ => panic!("There should not be any brackets at this point!"),
-        },
+    
+    fn take_expression(&mut self) -> Result<Expression, ParserError> {
+        match self.pop() {
+            None => Err(ParserError { message: String::from("Malformed Formula") }),
+            Some(token) => match token {
+                Var(var) => Ok(Expression::Var(var)),
+                NotOperator => {
+                    let expr = self.take_expression()?;
+                    Ok(Expression::Not(Box::new(expr)))
+                }
+                AndOperator => {
+                    let expr = self.take_expression()?;
+                    let expr2 = self.take_expression()?;
+                    Ok(Expression::And(Box::new(expr), Box::new(expr2)))
+                }
+                OrOperator => {
+                    let expr = self.take_expression()?;
+                    let expr2 = self.take_expression()?;
+                    Ok(Expression::Or(Box::new(expr), Box::new(expr2)))
+                }
+                _ => panic!("There should not be any brackets at this point!"),
+            },
+        }
     }
 }
