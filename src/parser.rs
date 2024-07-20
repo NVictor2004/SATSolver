@@ -3,6 +3,7 @@ use crate::lexer::{TokenStream, Token::{self, *}};
 use std::error::Error;
 use std::fmt::{self, Display};
 
+#[derive(Clone)]
 pub enum Expression {
     Var(String),
     And(Box<Expression>, Box<Expression>),

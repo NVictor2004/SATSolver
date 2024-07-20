@@ -18,4 +18,8 @@ fn main() {
     });
 
     println!("{expression}");
+
+    let cnfrep = satsolver::expr_to_cnfrep(expression.clone());
+    
+    println!("{cnfrep:?}");
 }
