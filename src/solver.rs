@@ -74,15 +74,6 @@ fn lookup(value: &String, varmap: &VarMap) -> Option<i32> {
     Some(varmap.iter().find(|(v, _)| value == v)?.1)
 }
 
-pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
-    let mut varmap = Vec::new();
-    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
-    println!("{varmap:?}");
-    println!("{formula:?}");
-    let mut cnfrep = CNFRep { formula, trues: Vec::new() };
-    dpll(&mut cnfrep)
-}
-
 fn update(var: String, varmap: &mut VarMap) -> i32 {
     let val = match varmap.last() {
         Some((_, val)) => val + 1,
@@ -92,76 +83,70 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
     val
 }
 
-fn get_status(clause: &Vec<i32>, trues: &Vec<i32>) -> ClauseStatus {
+pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
+    let mut varmap = Vec::new();
+    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
+    println!("{varmap:?}");
+    println!("{formula:?}");
+    let mut cnfrep = CNFRep { formula, trues: Vec::new() };
+    dpll(&mut cnfrep)
+}
+
+fn get_status(clause: &Vec<i32>, trues: &Vec<i32>) -> Status {
     let mut candidates = Vec::new();
     for literal in clause {
         if trues.contains(literal) {
-            return ClauseStatus::True;
+            return Status::True;
         }
-        if trues.contains(&-literal) {
-            continue;
+        if !trues.contains(&-literal) {
+            candidates.push(*literal);
         }
-        candidates.push(*literal);
     }
     match candidates.len() {
-        0 => ClauseStatus::False,
-        1 => ClauseStatus::Single(*candidates.last().unwrap()),
-        _ => ClauseStatus::Multiple(candidates),
+        0 => Status::False,
+        1 => Status::Single(*candidates.last().unwrap()),
+        _ => Status::Multiple(candidates),
     }
 }
 
-enum ClauseStatus {
+enum Status {
     True,
     False,
     Single(i32),
     Multiple(Vec<i32>),
 }
 
-enum FormulaStatus {
-    Success,
-    Failure,
-    Restart,
-    Recurse(Vec<i32>),
-}
-
-fn dpll_helper(cnfrep: &mut CNFRep) -> FormulaStatus {
-    let mut all_candidates = Vec::new();
-    for clause in &cnfrep.formula {
-        match get_status(clause, &cnfrep.trues) {
-            ClauseStatus::True => (),
-            ClauseStatus::False => return FormulaStatus::Failure,
-            ClauseStatus::Single(single) => {
-                cnfrep.trues.push(single);
-                return FormulaStatus::Restart;
-            },
-            ClauseStatus::Multiple(mut candidates) => all_candidates.append(&mut candidates),
-        }
-    }
-    match all_candidates.len() {
-        0 => FormulaStatus::Success,
-        _ => FormulaStatus::Recurse(all_candidates),
-    }
-}
-
 fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
-    loop {
-        match dpll_helper(cnfrep) {
-            FormulaStatus::Success => return vec!(cnfrep.trues.clone()),
-            FormulaStatus::Failure => return Vec::new(),
-            FormulaStatus::Restart => continue,
-            FormulaStatus::Recurse(candidates) => {
-                let literal = *candidates.last().unwrap();
+    'main: loop {
 
-                cnfrep.trues.push(literal);
-                let mut result = dpll(cnfrep);
-                cnfrep.trues.pop();
-
-                cnfrep.trues.push(-literal);
-                result.append(&mut dpll(cnfrep));
-                cnfrep.trues.pop();
-
-                return result;
+        let mut all_candidates = Vec::new();
+    
+        for clause in &cnfrep.formula {
+            match get_status(clause, &cnfrep.trues) {
+                Status::True => continue,
+                Status::False => return Vec::new(),
+                Status::Single(single) => {
+                    cnfrep.trues.push(single);
+                    continue 'main;
+                }
+                Status::Multiple(mut candidates) => all_candidates.append(&mut candidates),
             }
         }
+
+        if all_candidates.is_empty() {
+            return vec!(cnfrep.trues.clone());
+        }
+
+        let literal = *all_candidates.last().unwrap();
+
+        cnfrep.trues.push(literal);
+        let mut result = dpll(cnfrep);
+        cnfrep.trues.pop();
+
+        cnfrep.trues.push(-literal);
+        result.append(&mut dpll(cnfrep));
+        cnfrep.trues.pop();
+
+        return result;
     }
 }
