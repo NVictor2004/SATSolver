@@ -2,7 +2,10 @@
 use crate::parser::Expression::{self, *};
 
 type VarMap = Vec<(String, i32)>;
-type CNFRep = Vec<Vec<i32>>;
+struct CNFRep {
+    formula: Vec<Vec<i32>>,
+    trues: Vec<i32>,
+}
 
 impl Expression {
     fn expr_to_nnf(self) -> Expression {
@@ -36,7 +39,7 @@ impl Expression {
         }
     }
 
-    fn expr_to_cnfrep_helper(self, varmap: &mut VarMap) -> CNFRep {
+    fn expr_to_cnfrep_helper(self, varmap: &mut VarMap) -> Vec<Vec<i32>> {
         match self {
             Var(var) => vec!(vec!(match lookup(&var, varmap) {
                 Some(val) => val,
@@ -71,11 +74,13 @@ fn lookup(value: &String, varmap: &VarMap) -> Option<i32> {
     Some(varmap.iter().find(|(v, _)| value == v)?.1)
 }
 
-pub fn expr_to_cnfrep(expr: Expression) -> CNFRep {
-    let cnf = expr.expr_to_cnf();
-    println!("{cnf}");
+pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
     let mut varmap = Vec::new();
-    cnf.expr_to_cnfrep_helper(&mut varmap)
+    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
+    println!("{varmap:?}");
+    println!("{formula:?}");
+    let mut cnfrep = CNFRep { formula, trues: Vec::new() };
+    dpll(&mut cnfrep)
 }
 
 fn update(var: String, varmap: &mut VarMap) -> i32 {
@@ -87,3 +92,76 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
     val
 }
 
+fn get_status(clause: &Vec<i32>, trues: &Vec<i32>) -> ClauseStatus {
+    let mut candidates = Vec::new();
+    for literal in clause {
+        if trues.contains(literal) {
+            return ClauseStatus::True;
+        }
+        if trues.contains(&-literal) {
+            continue;
+        }
+        candidates.push(*literal);
+    }
+    match candidates.len() {
+        0 => ClauseStatus::False,
+        1 => ClauseStatus::Single(*candidates.last().unwrap()),
+        _ => ClauseStatus::Multiple(candidates),
+    }
+}
+
+enum ClauseStatus {
+    True,
+    False,
+    Single(i32),
+    Multiple(Vec<i32>),
+}
+
+enum FormulaStatus {
+    Success,
+    Failure,
+    Restart,
+    Recurse(Vec<i32>),
+}
+
+fn dpll_helper(cnfrep: &mut CNFRep) -> FormulaStatus {
+    let mut all_candidates = Vec::new();
+    for clause in &cnfrep.formula {
+        match get_status(clause, &cnfrep.trues) {
+            ClauseStatus::True => (),
+            ClauseStatus::False => return FormulaStatus::Failure,
+            ClauseStatus::Single(single) => {
+                cnfrep.trues.push(single);
+                return FormulaStatus::Restart;
+            },
+            ClauseStatus::Multiple(mut candidates) => all_candidates.append(&mut candidates),
+        }
+    }
+    match all_candidates.len() {
+        0 => FormulaStatus::Success,
+        _ => FormulaStatus::Recurse(all_candidates),
+    }
+}
+
+fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
+    loop {
+        match dpll_helper(cnfrep) {
+            FormulaStatus::Success => return vec!(cnfrep.trues.clone()),
+            FormulaStatus::Failure => return Vec::new(),
+            FormulaStatus::Restart => continue,
+            FormulaStatus::Recurse(candidates) => {
+                let literal = *candidates.last().unwrap();
+
+                cnfrep.trues.push(literal);
+                let mut result = dpll(cnfrep);
+                cnfrep.trues.pop();
+
+                cnfrep.trues.push(-literal);
+                result.append(&mut dpll(cnfrep));
+                cnfrep.trues.pop();
+
+                return result;
+            }
+        }
+    }
+}

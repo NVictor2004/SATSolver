@@ -19,7 +19,7 @@ fn main() {
 
     println!("{expression}");
 
-    let cnfrep = satsolver::expr_to_cnfrep(expression.clone());
+    let solutions = satsolver::solve(expression);
     
-    println!("{cnfrep:?}");
+    println!("{solutions:?}");
 }
