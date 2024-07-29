@@ -85,15 +85,15 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
     val
 }
 
-pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
+pub fn solve(expr: Expression) -> Vec<Vec<String>> {
     let mut varmap = Vec::new();
-    let cnf = expr.expr_to_cnf();
-    println!("{cnf}");
-    let formula = cnf.expr_to_cnfrep_helper(&mut varmap);
+    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
     println!("{varmap:?}");
     println!("{formula:?}");
     let mut cnfrep = CNFRep { formula, trues: Vec::new() };
-    dpll(&mut cnfrep)
+    let solutions = dpll(&mut cnfrep);
+    println!("{solutions:?}");
+    expand(solutions, varmap)
 }
 
 fn get_status(clause: &HashSet<i32>, trues: &Vec<i32>) -> Status {
@@ -153,4 +153,37 @@ fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
 
         return result;
     }
+}
+
+fn reverse_lookup(number: i32, varmap: &VarMap) -> String {
+    if number < 0 {
+        let number = -number;
+        return format!("!{}", varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone().as_str());
+    }
+    varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone()
+}
+
+fn all_assignments(solution: &mut Vec<i32>, varmap: &VarMap) -> Vec<Vec<i32>> {
+    for (_, num) in varmap {
+        if solution.contains(num) {
+            continue;
+        }
+        if solution.contains(&-num) {
+            continue;
+        }
+        solution.push(*num);
+        let mut result = all_assignments(solution, varmap);
+        solution.pop();
+
+        solution.push(-num);
+        result.append(&mut all_assignments(solution, varmap));
+        solution.pop();
+        return result;
+    }
+    vec!(solution.clone())
+}
+
+fn expand(solutions: Vec<Vec<i32>>, varmap: VarMap) -> Vec<Vec<String>> {
+    let all_solutions: Vec<_> = solutions.into_iter().map(|mut solution| all_assignments(&mut solution, &varmap)).collect();
+    all_solutions.concat().into_iter().map(|solution| solution.into_iter().map(| number | reverse_lookup(number, &varmap) ).collect()).collect()
 }
