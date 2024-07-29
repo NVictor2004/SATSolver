@@ -18,8 +18,8 @@ fn main() {
     });
 
     println!("{expression}");
-
-    let solutions = satsolver::solve(expression);
     
-    println!("{solutions:?}");
+    let solutions: Vec<_> = satsolver::solve(expression).into_iter().map(| solution | solution.join(" & ")).collect();
+    let solutions = solutions.join("\n");
+    println!("{solutions}");
 }
