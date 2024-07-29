@@ -1,9 +1,11 @@
 
+use std::collections::HashSet;
+
 use crate::parser::Expression::{self, *};
 
 type VarMap = Vec<(String, i32)>;
 struct CNFRep {
-    formula: Vec<Vec<i32>>,
+    formula: Vec<HashSet<i32>>,
     trues: Vec<i32>,
 }
 
@@ -39,17 +41,17 @@ impl Expression {
         }
     }
 
-    fn expr_to_cnfrep_helper(self, varmap: &mut VarMap) -> Vec<Vec<i32>> {
+    fn expr_to_cnfrep_helper(self, varmap: &mut VarMap) -> Vec<HashSet<i32>> {
         match self {
-            Var(var) => vec!(vec!(match lookup(&var, varmap) {
-                Some(val) => val,
-                None => update(var, varmap),
-            })),
+            Var(var) => vec!(match lookup(&var, varmap) {
+                Some(val) => HashSet::from([val]),
+                None => HashSet::from([update(var, varmap)]),
+            }),
             Not(expr) => match *expr {
-                Var(var) => vec!(vec!(match lookup(&var, varmap) {
-                    Some(val) => -val,
-                    None => -update(var, varmap),
-                })),
+                Var(var) => vec!(match lookup(&var, varmap) {
+                    Some(val) => HashSet::from([-val]),
+                    None => HashSet::from([-update(var, varmap)]),
+                }),
                 _ => panic!("Should not occur!"),
             },
             And(expr, expr2) => {
@@ -60,11 +62,7 @@ impl Expression {
             Or(expr, expr2) => {
                 let mut result = expr.expr_to_cnfrep_helper(varmap);
                 result.append(&mut expr2.expr_to_cnfrep_helper(varmap));
-
-                let mut result = result.concat();
-                result.sort();
-                result.dedup();
-                vec!(result)
+                vec!(result.iter().fold(HashSet::new(), |mut combine, set| { combine.extend(set); combine }))
             },
         }
     }
@@ -98,7 +96,7 @@ pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
     dpll(&mut cnfrep)
 }
 
-fn get_status(clause: &Vec<i32>, trues: &Vec<i32>) -> Status {
+fn get_status(clause: &HashSet<i32>, trues: &Vec<i32>) -> Status {
     let mut candidates = Vec::new();
     for literal in clause {
         if trues.contains(literal) {
