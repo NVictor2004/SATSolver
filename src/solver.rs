@@ -60,7 +60,11 @@ impl Expression {
             Or(expr, expr2) => {
                 let mut result = expr.expr_to_cnfrep_helper(varmap);
                 result.append(&mut expr2.expr_to_cnfrep_helper(varmap));
-                vec!(result.concat())
+
+                let mut result = result.concat();
+                result.sort();
+                result.dedup();
+                vec!(result)
             },
         }
     }
@@ -85,7 +89,9 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
 
 pub fn solve(expr: Expression) -> Vec<Vec<i32>> {
     let mut varmap = Vec::new();
-    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
+    let cnf = expr.expr_to_cnf();
+    println!("{cnf}");
+    let formula = cnf.expr_to_cnfrep_helper(&mut varmap);
     println!("{varmap:?}");
     println!("{formula:?}");
     let mut cnfrep = CNFRep { formula, trues: Vec::new() };
