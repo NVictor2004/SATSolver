@@ -121,44 +121,43 @@ enum Status {
 }
 
 fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
-    'main: loop {
+    let mut all_candidates = Vec::new();
 
-        let mut all_candidates = Vec::new();
-    
-        for clause in &cnfrep.formula {
-            match get_status(clause, &cnfrep.trues) {
-                Status::True => continue,
-                Status::False => return Vec::new(),
-                Status::Single(single) => {
-                    cnfrep.trues.push(single);
-                    continue 'main;
-                }
-                Status::Multiple(mut candidates) => all_candidates.append(&mut candidates),
+    for clause in &cnfrep.formula {
+        match get_status(clause, &cnfrep.trues) {
+            Status::True => continue,
+            Status::False => return Vec::new(),
+            Status::Single(single) => {
+                cnfrep.trues.push(single);
+                let result = dpll(cnfrep);
+                cnfrep.trues.pop();
+                return result;
             }
+            Status::Multiple(mut candidates) => all_candidates.append(&mut candidates),
         }
-
-        if all_candidates.is_empty() {
-            return vec!(cnfrep.trues.clone());
-        }
-
-        let literal = *all_candidates.last().unwrap();
-
-        cnfrep.trues.push(literal);
-        let mut result = dpll(cnfrep);
-        cnfrep.trues.pop();
-
-        cnfrep.trues.push(-literal);
-        result.append(&mut dpll(cnfrep));
-        cnfrep.trues.pop();
-
-        return result;
     }
+
+    if all_candidates.is_empty() {
+        return vec!(cnfrep.trues.clone());
+    }
+
+    let literal = *all_candidates.last().unwrap();
+
+    cnfrep.trues.push(literal);
+    let mut result = dpll(cnfrep);
+    cnfrep.trues.pop();
+
+    cnfrep.trues.push(-literal);
+    result.append(&mut dpll(cnfrep));
+    cnfrep.trues.pop();
+
+    result
 }
 
 fn reverse_lookup(number: i32, varmap: &VarMap) -> String {
     if number < 0 {
         let number = -number;
-        return format!("!{}", varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone().as_str());
+        return format!("!{}", varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone());
     }
     varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone()
 }
