@@ -16,8 +16,6 @@ fn main() {
         eprintln!("{error}");
         process::exit(1);
     });
-
-    println!("{expression}");
     
     let solutions: Vec<_> = satsolver::solve(expression).into_iter().map(| solution | solution.join(" & ")).collect();
     let solutions = solutions.join("\n");

@@ -88,11 +88,8 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
 pub fn solve(expr: Expression) -> Vec<Vec<String>> {
     let mut varmap = Vec::new();
     let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
-    println!("{varmap:?}");
-    println!("{formula:?}");
     let mut cnfrep = CNFRep { formula, trues: Vec::new() };
     let solutions = dpll(&mut cnfrep);
-    println!("{solutions:?}");
     expand(solutions, varmap)
 }
 
