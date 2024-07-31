@@ -93,52 +93,39 @@ pub fn solve(expr: Expression) -> Vec<Vec<String>> {
     expand(solutions, varmap)
 }
 
-fn get_status(clause: &HashSet<i32>, trues: &Vec<i32>) -> Status {
-    let mut candidates = Vec::new();
-    for literal in clause {
-        if trues.contains(literal) {
-            return Status::True;
-        }
-        if !trues.contains(&-literal) {
-            candidates.push(*literal);
-        }
-    }
-    match candidates.len() {
-        0 => Status::False,
-        1 => Status::Single(*candidates.last().unwrap()),
-        _ => Status::Multiple(candidates),
-    }
-}
-
-enum Status {
-    True,
-    False,
-    Single(i32),
-    Multiple(Vec<i32>),
-}
-
 fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
-    let mut all_candidates = Vec::new();
+    let mut all_unassigned = Vec::new();
 
-    for clause in &cnfrep.formula {
-        match get_status(clause, &cnfrep.trues) {
-            Status::True => continue,
-            Status::False => return Vec::new(),
-            Status::Single(single) => {
-                cnfrep.trues.push(single);
-                let result = dpll(cnfrep);
-                cnfrep.trues.pop();
-                return result;
+    'clause_loop: for clause in &cnfrep.formula {
+        let mut unassigned = Vec::new();
+        for literal in clause {
+            if cnfrep.trues.contains(literal) {
+                continue 'clause_loop;
             }
-            Status::Multiple(mut candidates) => all_candidates.append(&mut candidates),
+            if !cnfrep.trues.contains(&-literal) {
+                unassigned.push(*literal);
+            }
         }
+
+        if unassigned.is_empty() {
+            return Vec::new();
+        }
+
+        if unassigned.len() == 1 {
+            cnfrep.trues.push(unassigned.pop().unwrap());
+            let result = dpll(cnfrep);
+            cnfrep.trues.pop();
+            return result;
+        }
+
+        all_unassigned.append(&mut unassigned);
     }
 
-    if all_candidates.is_empty() {
+    if all_unassigned.is_empty() {
         return vec!(cnfrep.trues.clone());
     }
 
-    let literal = *all_candidates.last().unwrap();
+    let literal = all_unassigned.pop().unwrap();
 
     cnfrep.trues.push(literal);
     let mut result = dpll(cnfrep);
