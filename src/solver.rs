@@ -40,8 +40,7 @@ impl Expression {
             Var(_) => self,
         }
     }
-
-    fn expr_to_cnfrep_helper(self, varmap: &mut VarMap) -> Vec<HashSet<i32>> {
+    fn cnf_to_cnfrep(self, varmap: &mut VarMap) -> Vec<HashSet<i32>> {
         match self {
             Var(var) => vec!(match lookup(&var, varmap) {
                 Some(val) => HashSet::from([val]),
@@ -55,20 +54,69 @@ impl Expression {
                 _ => panic!("Should not occur!"),
             },
             And(expr, expr2) => {
-                let mut result = expr.expr_to_cnfrep_helper(varmap);
-                result.append(&mut expr2.expr_to_cnfrep_helper(varmap));
+                let mut result = expr.cnf_to_cnfrep(varmap);
+                result.append(&mut expr2.cnf_to_cnfrep(varmap));
                 result
             },
             Or(expr, expr2) => {
-                let mut result = expr.expr_to_cnfrep_helper(varmap);
-                result.append(&mut expr2.expr_to_cnfrep_helper(varmap));
+                let mut result = expr.cnf_to_cnfrep(varmap);
+                result.append(&mut expr2.cnf_to_cnfrep(varmap));
                 vec!(result.iter().fold(HashSet::new(), |mut combine, set| { combine.extend(set); combine }))
             },
         }
     }
+}
 
-    fn expr_to_cnf(self) -> Expression {
-        self.expr_to_nnf().nnf_to_cnf()
+impl CNFRep {
+    fn new(formula: Vec<HashSet<i32>>) -> CNFRep {
+        CNFRep {
+            formula,
+            trues: Vec::new(),
+        }
+    }
+    fn dpll(&mut self) -> Vec<Vec<i32>> {
+        let mut all_unassigned = Vec::new();
+    
+        'clause_loop: for clause in &self.formula {
+            let mut unassigned = Vec::new();
+            for literal in clause {
+                if self.trues.contains(literal) {
+                    continue 'clause_loop;
+                }
+                if !self.trues.contains(&-literal) {
+                    unassigned.push(*literal);
+                }
+            }
+    
+            if unassigned.is_empty() {
+                return Vec::new();
+            }
+    
+            if unassigned.len() == 1 {
+                self.trues.push(unassigned.pop().unwrap());
+                let result = self.dpll();
+                self.trues.pop();
+                return result;
+            }
+    
+            all_unassigned.append(&mut unassigned);
+        }
+    
+        if all_unassigned.is_empty() {
+            return vec!(self.trues.clone());
+        }
+    
+        let literal = all_unassigned.pop().unwrap();
+    
+        self.trues.push(literal);
+        let mut result = self.dpll();
+        self.trues.pop();
+    
+        self.trues.push(-literal);
+        result.append(&mut self.dpll());
+        self.trues.pop();
+    
+        result
     }
 }
 
@@ -87,55 +135,9 @@ fn update(var: String, varmap: &mut VarMap) -> i32 {
 
 pub fn solve(expr: Expression) -> Vec<Vec<String>> {
     let mut varmap = Vec::new();
-    let formula = expr.expr_to_cnf().expr_to_cnfrep_helper(&mut varmap);
-    let mut cnfrep = CNFRep { formula, trues: Vec::new() };
-    let solutions = dpll(&mut cnfrep);
+    let formula = expr.expr_to_nnf().nnf_to_cnf().cnf_to_cnfrep(&mut varmap);
+    let solutions = CNFRep::new(formula).dpll();
     expand(solutions, varmap)
-}
-
-fn dpll(cnfrep: &mut CNFRep) -> Vec<Vec<i32>> {
-    let mut all_unassigned = Vec::new();
-
-    'clause_loop: for clause in &cnfrep.formula {
-        let mut unassigned = Vec::new();
-        for literal in clause {
-            if cnfrep.trues.contains(literal) {
-                continue 'clause_loop;
-            }
-            if !cnfrep.trues.contains(&-literal) {
-                unassigned.push(*literal);
-            }
-        }
-
-        if unassigned.is_empty() {
-            return Vec::new();
-        }
-
-        if unassigned.len() == 1 {
-            cnfrep.trues.push(unassigned.pop().unwrap());
-            let result = dpll(cnfrep);
-            cnfrep.trues.pop();
-            return result;
-        }
-
-        all_unassigned.append(&mut unassigned);
-    }
-
-    if all_unassigned.is_empty() {
-        return vec!(cnfrep.trues.clone());
-    }
-
-    let literal = all_unassigned.pop().unwrap();
-
-    cnfrep.trues.push(literal);
-    let mut result = dpll(cnfrep);
-    cnfrep.trues.pop();
-
-    cnfrep.trues.push(-literal);
-    result.append(&mut dpll(cnfrep));
-    cnfrep.trues.pop();
-
-    result
 }
 
 fn reverse_lookup(number: i32, varmap: &VarMap) -> String {
