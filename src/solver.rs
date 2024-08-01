@@ -148,7 +148,7 @@ impl VarMap {
     }
 }
 
-fn all_assignments(varmap: &VarMap, solution: &mut Vec<i32>) -> Vec<Vec<i32>> {
+fn all_assignments(solution: &mut Vec<i32>, varmap: &VarMap) -> Vec<Vec<i32>> {
     for (_, num) in &varmap.map {
         if solution.contains(num) {
             continue;
@@ -157,23 +157,23 @@ fn all_assignments(varmap: &VarMap, solution: &mut Vec<i32>) -> Vec<Vec<i32>> {
             continue;
         }
         solution.push(*num);
-        let mut result = all_assignments(varmap, solution);
+        let mut result = all_assignments(solution, varmap);
         solution.pop();
 
         solution.push(-num);
-        result.append(&mut all_assignments(varmap, solution));
+        result.append(&mut all_assignments(solution, varmap));
         solution.pop();
         return result;
     }
     vec!(solution.clone())
 }
-fn expand(varmap: VarMap, solutions: Vec<Vec<i32>>) -> Vec<Vec<String>> {
-    let all_solutions: Vec<_> = solutions.into_iter().map(|mut solution| all_assignments(&varmap, &mut solution)).collect();
+fn expand(solutions: Vec<Vec<i32>>, varmap: VarMap) -> Vec<Vec<String>> {
+    let all_solutions: Vec<_> = solutions.into_iter().map(|mut solution| all_assignments(&mut solution, &varmap)).collect();
     all_solutions.concat().into_iter().map(|solution| solution.into_iter().map(| number | varmap.reverse_lookup(number) ).collect()).collect()
 }
 
 pub fn solve(expr: Expression) -> Vec<Vec<String>> {
     let mut varmap = VarMap::new();
     let solutions = expr.expr_to_nnf().nnf_to_cnf().cnf_to_cnfrep(&mut varmap).dpll();
-    expand(varmap, solutions)
+    expand(solutions, varmap)
 }
