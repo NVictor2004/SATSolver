@@ -1,9 +1,13 @@
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::parser::Expression::{self, *};
 
-type VarMap = Vec<(String, i32)>;
+struct VarMap {
+    map: HashMap<String, i32>,
+    length: i32,
+}
+
 struct CNFRep {
     formula: Vec<HashSet<i32>>,
     trues: Vec<i32>,
@@ -40,30 +44,33 @@ impl Expression {
             Var(_) => self,
         }
     }
-    fn cnf_to_cnfrep(self, varmap: &mut VarMap) -> Vec<HashSet<i32>> {
+    fn cnf_to_cnfrep_helper(self, varmap: &mut VarMap) -> Vec<HashSet<i32>> {
         match self {
-            Var(var) => vec!(match lookup(&var, varmap) {
-                Some(val) => HashSet::from([val]),
-                None => HashSet::from([update(var, varmap)]),
+            Var(var) => vec!(match varmap.map.get(&var) {
+                Some(&val) => HashSet::from([val]),
+                None => HashSet::from([varmap.update(var)]),
             }),
             Not(expr) => match *expr {
-                Var(var) => vec!(match lookup(&var, varmap) {
+                Var(var) => vec!(match varmap.map.get(&var) {
                     Some(val) => HashSet::from([-val]),
-                    None => HashSet::from([-update(var, varmap)]),
+                    None => HashSet::from([-varmap.update(var)]),
                 }),
                 _ => panic!("Should not occur!"),
             },
             And(expr, expr2) => {
-                let mut result = expr.cnf_to_cnfrep(varmap);
-                result.append(&mut expr2.cnf_to_cnfrep(varmap));
+                let mut result = expr.cnf_to_cnfrep_helper(varmap);
+                result.append(&mut expr2.cnf_to_cnfrep_helper(varmap));
                 result
             },
             Or(expr, expr2) => {
-                let mut result = expr.cnf_to_cnfrep(varmap);
-                result.append(&mut expr2.cnf_to_cnfrep(varmap));
+                let mut result = expr.cnf_to_cnfrep_helper(varmap);
+                result.append(&mut expr2.cnf_to_cnfrep_helper(varmap));
                 vec!(result.iter().fold(HashSet::new(), |mut combine, set| { combine.extend(set); combine }))
             },
         }
+    }
+    fn cnf_to_cnfrep(self, varmap: &mut VarMap) -> CNFRep {
+        CNFRep::new(self.cnf_to_cnfrep_helper(varmap))
     }
 }
 
@@ -120,36 +127,29 @@ impl CNFRep {
     }
 }
 
-fn lookup(value: &String, varmap: &VarMap) -> Option<i32> {
-    Some(varmap.iter().find(|(v, _)| value == v)?.1)
-}
-
-fn update(var: String, varmap: &mut VarMap) -> i32 {
-    let val = match varmap.last() {
-        Some((_, val)) => val + 1,
-        None => 1,
-    };
-    varmap.push((var, val));
-    val
-}
-
-pub fn solve(expr: Expression) -> Vec<Vec<String>> {
-    let mut varmap = Vec::new();
-    let formula = expr.expr_to_nnf().nnf_to_cnf().cnf_to_cnfrep(&mut varmap);
-    let solutions = CNFRep::new(formula).dpll();
-    expand(solutions, varmap)
-}
-
-fn reverse_lookup(number: i32, varmap: &VarMap) -> String {
-    if number < 0 {
-        let number = -number;
-        return format!("!{}", varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone());
+impl VarMap {
+    fn new() -> VarMap {
+        VarMap {
+            map: HashMap::new(),
+            length: 0,
+        }
     }
-    varmap.iter().find(|(_, i)| number == *i).unwrap().0.clone()
+    fn update(&mut self, var: String) -> i32 {
+        self.length += 1;
+        self.map.insert(var, self.length);
+        self.length
+    }
+    fn reverse_lookup(&self, number: i32) -> String {
+        if number < 0 {
+            let number = -number;
+            return format!("!{}", self.map.iter().find(|(_, i)| number == **i).unwrap().0.clone());
+        }
+        self.map.iter().find(|(_, i)| number == **i).unwrap().0.clone()
+    }
 }
 
-fn all_assignments(solution: &mut Vec<i32>, varmap: &VarMap) -> Vec<Vec<i32>> {
-    for (_, num) in varmap {
+fn all_assignments(varmap: &VarMap, solution: &mut Vec<i32>) -> Vec<Vec<i32>> {
+    for (_, num) in &varmap.map {
         if solution.contains(num) {
             continue;
         }
@@ -157,18 +157,23 @@ fn all_assignments(solution: &mut Vec<i32>, varmap: &VarMap) -> Vec<Vec<i32>> {
             continue;
         }
         solution.push(*num);
-        let mut result = all_assignments(solution, varmap);
+        let mut result = all_assignments(varmap, solution);
         solution.pop();
 
         solution.push(-num);
-        result.append(&mut all_assignments(solution, varmap));
+        result.append(&mut all_assignments(varmap, solution));
         solution.pop();
         return result;
     }
     vec!(solution.clone())
 }
+fn expand(varmap: VarMap, solutions: Vec<Vec<i32>>) -> Vec<Vec<String>> {
+    let all_solutions: Vec<_> = solutions.into_iter().map(|mut solution| all_assignments(&varmap, &mut solution)).collect();
+    all_solutions.concat().into_iter().map(|solution| solution.into_iter().map(| number | varmap.reverse_lookup(number) ).collect()).collect()
+}
 
-fn expand(solutions: Vec<Vec<i32>>, varmap: VarMap) -> Vec<Vec<String>> {
-    let all_solutions: Vec<_> = solutions.into_iter().map(|mut solution| all_assignments(&mut solution, &varmap)).collect();
-    all_solutions.concat().into_iter().map(|solution| solution.into_iter().map(| number | reverse_lookup(number, &varmap) ).collect()).collect()
+pub fn solve(expr: Expression) -> Vec<Vec<String>> {
+    let mut varmap = VarMap::new();
+    let solutions = expr.expr_to_nnf().nnf_to_cnf().cnf_to_cnfrep(&mut varmap).dpll();
+    expand(varmap, solutions)
 }
