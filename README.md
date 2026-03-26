@@ -14,7 +14,7 @@ Brackets can also be written, using the `()` characters.
 
 ## Acknowledgements
 This project was inspired by the Haskell past paper at `wp.doc.ic.ac.uk/ajf/sat/`.
-I also used the lecture notes at `cs.cornell.edu/courses/cs4860/2009sp/lec-04.pdf` to improve the algorithm's efficiency.
+I also used the lecture notes at `cs.cornell.edu/courses/cs4860/2009sp/lec-04.pdf` to improve the efficiency of the DPLL algorithm.
 
 ## Setup Requirements
 Compilation of this program requires Rustup. A description of how to download this can be found at `doc.rust-lang.org/book/`. 
